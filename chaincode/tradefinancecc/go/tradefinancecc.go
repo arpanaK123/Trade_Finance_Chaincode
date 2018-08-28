@@ -23,6 +23,8 @@ package main
 //hard-coding.
 
 import (
+	// "bytes"
+	"encoding/json"
 	"fmt"
 	"strconv"
 
@@ -33,6 +35,75 @@ import (
 // SimpleChaincode example simple Chaincode implementation
 // SimpleAsset implements a simple chaincode to manage an asset
 type SimpleChaincode struct {
+}
+
+type AccountStructure struct{
+	account_Number string `json:"account_Number"`
+	account_Holder_Name string `json:"account_Holder_Name"`
+	account_Balance string `json:"account_Balance"`
+}
+type ContractStructure struct{
+	contract_Id string `json:"contract_Id"`
+	importer_Name string  `json:"importer_Name"`
+	exporter_Name string `json:"exporter_Name"`
+	port_Authority string `json:"port_Authority"`
+	custom_Authority string `json:"custom_Authority"`
+	importer_Bank_Name string `json:"importer_Bank_Name"`
+	insurance_Name string `json:"insurance_Name"`
+}
+// func (s *SimpleChaincode) Init(APIstub shim.ChaincodeStubInterface) pb.Response{
+// 	return shim.Success(nil)
+// }
+
+func (t *SimpleChaincode) Invoke(stub shim.ChaincodeStubInterface) pb.Response {
+	fmt.Println("exporter Invoke")
+	function, args := stub.GetFunctionAndParameters()
+	if function == "invoke" {
+		// Make payment of X units from A to B
+		return t.invoke(stub, args)
+	}else if function == "create_Account" {
+		// Make payment of X units from A to B
+		return t.create_Account(stub, args)
+	} else if function == "create_Contract" {
+		// Create contract an entity from its state
+		return t.create_Contract(stub, args)
+	} else if function == "get_Balance_By" {
+		// Get balance by acc_no an entity from its state
+		return t.get_Balance_By(stub, args)
+	}else if function == "get_Account" {
+		// get account an entity from its state
+		return t.get_Account(stub, args)
+	}else if function == "query" {
+		// the old "Query" is now implemtned in invoke
+		return t.query(stub, args)
+	}
+
+	return shim.Error("Invalid invoke function name. Expecting \"create_Account\" \"create_Contract\" \"get_Balance_By\"\"get_Account\"\"query\"")
+}
+
+func (s *SimpleChaincode) create_Account(APIstub shim.ChaincodeStubInterface, args []string) pb.Response{
+	if len(args) != 4 {
+		return shim.Error("Incorrect number of arguments. Expecting 4")
+	}
+	var account=AccountStructure{account_Number:args[1], account_Holder_Name: args[2], account_Balance: args[3] }
+	accountAsBytes,_:=json.Marshal(account)
+	APIstub.PutState(args[0], accountAsBytes)
+	return shim.Success(nil)
+}
+func (s *SimpleChaincode) create_Contract(APIstub shim.ChaincodeStubInterface, args []string) pb.Response{
+	if len(args) != 8 {
+		return shim.Error("Incorrect number of arguments. Expecting 8")
+	}
+	var contract=ContractStructure{contract_Id:args[1], importer_Name:args[2], exporter_Name:args[3],  port_Authority:args[4], custom_Authority:args[5], importer_Bank_Name:args[6], insurance_Name:args[7]}
+	contractAsBytes,_:=json.Marshal(contract)
+	APIstub.PutState(args[0],contractAsBytes)
+	return shim.Success(nil)
+}
+func (s *SimpleChaincode) get_Balance_By(stub shim.ChaincodeStubInterface, args []string) pb.Response{
+	return shim.Success(nil)
+}
+func (s *SimpleChaincode) get_Account(stub shim.ChaincodeStubInterface, args []string) pb.Response{
+	return shim.Success(nil)
 }
 
 func (t *SimpleChaincode) Init(stub shim.ChaincodeStubInterface) pb.Response {
@@ -73,24 +144,24 @@ func (t *SimpleChaincode) Init(stub shim.ChaincodeStubInterface) pb.Response {
 	return shim.Success(nil)
 }
 
-func (t *SimpleChaincode) Invoke(stub shim.ChaincodeStubInterface) pb.Response {
-	fmt.Println("exporter Invoke")
-	function, args := stub.GetFunctionAndParameters()
-	if function == "invoke" {
-		// Make payment of X units from A to B
-		return t.invoke(stub, args)
-	} else if function == "delete" {
-		// Deletes an entity from its state
-		return t.delete(stub, args)
-	} else if function == "query" {
-		// the old "Query" is now implemtned in invoke
-		return t.query(stub, args)
-	}
+// func (t *SimpleChaincode) Invoke(stub shim.ChaincodeStubInterface) pb.Response {
+// 	fmt.Println("exporter Invoke")
+// 	function, args := stub.GetFunctionAndParameters()
+// 	if function == "invoke" {
+// 		// Make payment of X units from A to B
+// 		return t.invoke(stub, args)
+// 	} else if function == "delete" {
+// 		// Deletes an entity from its state
+// 		return t.delete(stub, args)
+// 	} else if function == "query" {
+// 		// the old "Query" is now implemtned in invoke
+// 		return t.query(stub, args)
+// 	}
 
-	return shim.Error("Invalid invoke function name. Expecting \"invoke\" \"delete\" \"query\"")
-}
+// 	return shim.Error("Invalid invoke function name. Expecting \"invoke\" \"delete\" \"query\"")
+// }
 
-// Transaction makes payment of X units from A to B
+//Transaction makes payment of X units from A to B
 func (t *SimpleChaincode) invoke(stub shim.ChaincodeStubInterface, args []string) pb.Response {
 	var A, B string    // Entities
 	var Aval, Bval int // Asset holdings
