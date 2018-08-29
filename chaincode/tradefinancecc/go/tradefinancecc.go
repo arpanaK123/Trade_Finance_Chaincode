@@ -38,20 +38,21 @@ type SimpleChaincode struct {
 }
 
 type AccountStructure struct{
-	account_Number string `json:"account_Number"`
-	account_Holder_Name string `json:"account_Holder_Name"`
-	account_Balance string `json:"account_Balance"`
+	Account_Number string `json:"account_Number"`
+	Account_Holder_Name string `json:"account_Holder_Name"`
+	Account_Balance string `json:"account_Balance"`
 }
 type ContractStructure struct{
-	contract_Id string `json:"contract_Id"`
-	importer_Name string  `json:"importer_Name"`
-	exporter_Name string `json:"exporter_Name"`
-	port_Authority string `json:"port_Authority"`
-	custom_Authority string `json:"custom_Authority"`
-	importer_Bank_Name string `json:"importer_Bank_Name"`
-	insurance_Name string `json:"insurance_Name"`
+	Contract_Id string `json:"contract_Id"`
+	Content_Description string`json:"content_Description"`
+	Value string`json:"value"`
+	Importer_Bank_Name string  `json:"importer_Bank_Name"`
+	Exporter_Bank_Name string `json:"exporter_Bank_Name"`
+	Custom_Authority string `json:"custom_Authority"`
+	Port_Of_Loading string `json:"port_Of_Loading"`
+	Port_Of_Entry string `json:"port_Of_Entry"`
 }
-// func (s *SimpleChaincode) Init(APIstub shim.ChaincodeStubInterface) pb.Response{
+// func (s *SimpleChaincode) Init(stub shim.ChaincodeStubInterface) pb.Response{
 // 	return shim.Success(nil)
 // }
 
@@ -81,29 +82,57 @@ func (t *SimpleChaincode) Invoke(stub shim.ChaincodeStubInterface) pb.Response {
 	return shim.Error("Invalid invoke function name. Expecting \"create_Account\" \"create_Contract\" \"get_Balance_By\"\"get_Account\"\"query\"")
 }
 
-func (s *SimpleChaincode) create_Account(APIstub shim.ChaincodeStubInterface, args []string) pb.Response{
-	if len(args) != 4 {
+func (s *SimpleChaincode) create_Account(stub shim.ChaincodeStubInterface, args []string) pb.Response{
+	if len(args) != 3 {
 		return shim.Error("Incorrect number of arguments. Expecting 4")
 	}
-	var account=AccountStructure{account_Number:args[1], account_Holder_Name: args[2], account_Balance: args[3] }
-	accountAsBytes,_:=json.Marshal(account)
-	APIstub.PutState(args[0], accountAsBytes)
-	return shim.Success(nil)
+	account := AccountStructure{Account_Number:args[0], Account_Holder_Name: args[1], Account_Balance: args[2] }
+	accountAsBytes,error:=json.Marshal(account)
+	if error!=nil{
+	return shim.Error("error in jsonformat")
+	}
+	stub.PutState(args[0], accountAsBytes)
+	return shim.Success(accountAsBytes)
 }
-func (s *SimpleChaincode) create_Contract(APIstub shim.ChaincodeStubInterface, args []string) pb.Response{
+func (s *SimpleChaincode) create_Contract(stub shim.ChaincodeStubInterface, args []string) pb.Response{
 	if len(args) != 8 {
 		return shim.Error("Incorrect number of arguments. Expecting 8")
 	}
-	var contract=ContractStructure{contract_Id:args[1], importer_Name:args[2], exporter_Name:args[3],  port_Authority:args[4], custom_Authority:args[5], importer_Bank_Name:args[6], insurance_Name:args[7]}
-	contractAsBytes,_:=json.Marshal(contract)
-	APIstub.PutState(args[0],contractAsBytes)
-	return shim.Success(nil)
+	contract := ContractStructure{Contract_Id:args[0], Content_Description:args[1], Value:args[2],  Importer_Bank_Name:args[3], Exporter_Bank_Name:args[4], Custom_Authority:args[5], Port_Of_Loading:args[6], Port_Of_Entry:args[7]}
+	contractAsBytes,error:=json.Marshal(contract)
+	if error!=nil{
+		return shim.Error("error in jsonformat")
+	}
+	stub.PutState(args[0],contractAsBytes)
+	return shim.Success(contractAsBytes)
 }
 func (s *SimpleChaincode) get_Balance_By(stub shim.ChaincodeStubInterface, args []string) pb.Response{
-	return shim.Success(nil)
+	 account_Number := args[0]
+
+	 accountAsByte, accountError := stub.GetState(account_Number)
+	 if accountError != nil {
+	 	return shim.Error("error.... account information in getstate method ")
+	 }
+	  accountSructure:= AccountStructure{}
+	 errorAccount := json.Unmarshal(accountAsByte, &accountSructure)
+	 if errorAccount != nil {
+	 	shim.Error("error  Account structure")
+	 }
+	 return shim.Success([]byte(accountSructure.Account_Balance))
 }
 func (s *SimpleChaincode) get_Account(stub shim.ChaincodeStubInterface, args []string) pb.Response{
-	return shim.Success(nil)
+	 account_Number := args[0]
+
+	 accountAsByte, accountError := stub.GetState(account_Number)
+	 if accountError != nil {
+	 	return shim.Error("something wrong in getstate method ")
+	 }
+	 accountSructure := AccountStructure{}
+	 errorAccount := json.Unmarshal(accountAsByte, &accountSructure)
+	 if errorAccount != nil {
+	 	shim.Error("something wrong in Account structure")
+	 }
+	 return shim.Success(accountAsByte)
 }
 
 func (t *SimpleChaincode) Init(stub shim.ChaincodeStubInterface) pb.Response {
