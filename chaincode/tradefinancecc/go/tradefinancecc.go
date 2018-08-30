@@ -36,11 +36,12 @@ import (
 // SimpleAsset implements a simple chaincode to manage an asset
 type SimpleChaincode struct {
 }
-
+//Logger := shim.NewLogger("logger")
 type AccountStructure struct{
 	Account_Number string `json:"account_Number"`
 	Account_Holder_Name string `json:"account_Holder_Name"`
 	Account_Balance string `json:"account_Balance"`
+	Bank_Name string `json:"bank_Name"`
 }
 type ContractStructure struct{
 	Contract_Id string `json:"contract_Id"`
@@ -57,39 +58,47 @@ type ContractStructure struct{
 // }
 
 func (t *SimpleChaincode) Invoke(stub shim.ChaincodeStubInterface) pb.Response {
+	//Logger.Info("invoke called")
 	fmt.Println("exporter Invoke")
 	function, args := stub.GetFunctionAndParameters()
 	if function == "invoke" {
-		// Make payment of X units from A to B
 		return t.invoke(stub, args)
 	}else if function == "create_Account" {
-		// Make payment of X units from A to B
 		return t.create_Account(stub, args)
-	} else if function == "create_Contract" {
-		// Create contract an entity from its state
+	}else if function == "create_Contract" {
 		return t.create_Contract(stub, args)
-	} else if function == "get_Balance_By" {
-		// Get balance by acc_no an entity from its state
+	} else if function == "get_Contract_By" {
+		return t.get_Contract_By(stub, args)
+	}else if function == "get_Balance_By" {
 		return t.get_Balance_By(stub, args)
 	}else if function == "get_Account" {
-		// get account an entity from its state
 		return t.get_Account(stub, args)
+	}else if function == "accept_By_Importer" {
+		return t.accept_By_Importer(stub, args)
+	}else if function == "accept_By_Exporter" {
+		return t.accept_By_Exporter(stub, args)
+	}else if function == "accept_By_Custom" {
+		return t.accept_By_Custom(stub, args)
+	}else if function == "accept_By_ImporterBank" {
+		return t.accept_By_ImporterBank(stub, args)
+	}else if function == "accept_By_Insurance" {
+		return t.accept_By_Insurance(stub, args)
 	}else if function == "query" {
 		// the old "Query" is now implemtned in invoke
 		return t.query(stub, args)
 	}
 
-	return shim.Error("Invalid invoke function name. Expecting \"create_Account\" \"create_Contract\" \"get_Balance_By\"\"get_Account\"\"query\"")
+	return shim.Error("Invalid invoke function name. Expecting \"create_Account\" \"create_Contract\" \"get_Balance_By\"\"get_Account\"\"accept_By_Importer\"\"accept_By_Exporter\"\"accept_By_Custom\"\"accept_By_ImporterBank\"\"accept_By_Insurance\"\"query\"")
 }
 
 func (s *SimpleChaincode) create_Account(stub shim.ChaincodeStubInterface, args []string) pb.Response{
-	if len(args) != 3 {
+	if len(args) != 4 {
 		return shim.Error("Incorrect number of arguments. Expecting 4")
 	}
-	account := AccountStructure{Account_Number:args[0], Account_Holder_Name: args[1], Account_Balance: args[2] }
+	account := AccountStructure{Account_Number: args[0], Account_Holder_Name: args[1], Account_Balance: args[2], Bank_Name: args[3], }
 	accountAsBytes,error:=json.Marshal(account)
 	if error!=nil{
-	return shim.Error("error in jsonformat")
+	return shim.Error("something wrong")
 	}
 	stub.PutState(args[0], accountAsBytes)
 	return shim.Success(accountAsBytes)
@@ -101,7 +110,7 @@ func (s *SimpleChaincode) create_Contract(stub shim.ChaincodeStubInterface, args
 	contract := ContractStructure{Contract_Id:args[0], Content_Description:args[1], Value:args[2],  Importer_Bank_Name:args[3], Exporter_Bank_Name:args[4], Custom_Authority:args[5], Port_Of_Loading:args[6], Port_Of_Entry:args[7]}
 	contractAsBytes,error:=json.Marshal(contract)
 	if error!=nil{
-		return shim.Error("error in jsonformat")
+		return shim.Error("something wrong")
 	}
 	stub.PutState(args[0],contractAsBytes)
 	return shim.Success(contractAsBytes)
@@ -116,7 +125,7 @@ func (s *SimpleChaincode) get_Balance_By(stub shim.ChaincodeStubInterface, args 
 	  accountSructure:= AccountStructure{}
 	 errorAccount := json.Unmarshal(accountAsByte, &accountSructure)
 	 if errorAccount != nil {
-	 	shim.Error("error  Account structure")
+	 	return shim.Error("Something Wrong")
 	 }
 	 return shim.Success([]byte(accountSructure.Account_Balance))
 }
@@ -130,10 +139,103 @@ func (s *SimpleChaincode) get_Account(stub shim.ChaincodeStubInterface, args []s
 	 accountSructure := AccountStructure{}
 	 errorAccount := json.Unmarshal(accountAsByte, &accountSructure)
 	 if errorAccount != nil {
-	 	shim.Error("something wrong in Account structure")
+	 	return shim.Error("something wrong")
 	 }
 	 return shim.Success(accountAsByte)
 }
+func (s *SimpleChaincode) get_Contract_By(stub shim.ChaincodeStubInterface, args []string) pb.Response{
+	contract_Id := args[0]
+
+	contractAsByte, contractError := stub.GetState(contract_Id)
+	if contractError != nil {
+		return shim.Error("something wrong in getstate method ")
+	}
+	contractSructure := ContractStructure{}
+	errorContract := json.Unmarshal(contractAsByte, &contractSructure)
+	if errorContract != nil {
+		return	shim.Error("something wrong")
+	}
+	return shim.Success(contractAsByte)
+}
+
+func (s *SimpleChaincode) accept_By_Exporter(stub shim.ChaincodeStubInterface, args []string) pb.Response{
+	response:="success"
+	return shim.Success([]byte(response))
+}
+
+func (s *SimpleChaincode) accept_By_Importer(stub shim.ChaincodeStubInterface, args []string) pb.Response{
+	account_Number := args[0]
+	accountAsByte, accountError := stub.GetState(account_Number)
+	if accountError != nil {
+		return shim.Error("Account number Invalid ")
+	}
+	accountSructure := AccountStructure{}
+	errorAccount := json.Unmarshal(accountAsByte, &accountSructure)
+	if accountSructure.Account_Balance!="10000"{
+		return shim.Error("account balance is less than 10000")
+	}
+	//errorAccount := json.Unmarshal(accountAsByte, &accountSructure)
+	if errorAccount != nil {
+		return shim.Error("Account number Invalid")
+	}
+	response:="success"
+	return shim.Success([]byte(response))
+}
+
+func (s *SimpleChaincode) accept_By_Custom(stub shim.ChaincodeStubInterface, args []string) pb.Response{
+	contract_Id:=args[0]
+	 customAsByte, customError := stub.GetState(contract_Id)
+	 if customError != nil {
+	 	return shim.Error("Contract_Id is Invalid ")
+	 }
+	 contractSruct := ContractStructure{}
+	 errorContract_Custom := json.Unmarshal(customAsByte, &contractSruct)
+	 if contractSruct.Port_Of_Loading!="India" && contractSruct.Port_Of_Entry!="USA"{
+		return shim.Error("Port_Of_Loading or Port_Of_Entry is Invalid")
+	 }
+	 //errorContract_Custom := json.Unmarshal(customAsByte, &contractSruct)
+	 if errorContract_Custom != nil {
+	 	return shim.Error("something wrong")
+	 }
+	 response:="success"
+	 return shim.Success([]byte(response))}
+
+func (s *SimpleChaincode) accept_By_ImporterBank(stub shim.ChaincodeStubInterface, args []string) pb.Response{
+	account_Number := args[0]
+    account_Balance:="10000"
+	accountAsByte, accountError := stub.GetState(account_Number)
+	if accountError != nil {
+		return shim.Error("Account number is Invalid")
+	}
+	accountSruct := AccountStructure{}
+	errorAccount := json.Unmarshal(accountAsByte, &accountSruct)
+	if accountSruct.Account_Balance!=account_Balance{
+		return shim.Error("account balance is less than 10000")
+	}
+	//errorAccount := json.Unmarshal(accountAsByte, &accountSruct)
+	if errorAccount != nil {
+	return	shim.Error("something wrong")
+	}
+	response:="success"
+	return shim.Success([]byte(response))}
+
+func (s *SimpleChaincode) accept_By_Insurance(stub shim.ChaincodeStubInterface, args []string) pb.Response{
+	contract_Id:=args[0]
+	 customAsByte, customError := stub.GetState(contract_Id)
+	 if customError != nil {
+	 	return shim.Error("something wrong in getstate method ")
+	 }
+	 contractSruct := ContractStructure{}
+	 errorContract_Custom := json.Unmarshal(customAsByte, &contractSruct)
+	 if contractSruct.Port_Of_Loading!="India" && contractSruct.Port_Of_Entry!="USA"{
+		return shim.Error("Port_Of_Loading or Port_Of_Entry is Invalid")
+	 }
+	 //errorContract_Custom := json.Unmarshal(customAsByte, &contractSruct)
+	 if errorContract_Custom != nil {
+	 	return shim.Error("something wrong")
+	 }
+	 response:="success"
+	 return shim.Success([]byte(response))}
 
 func (t *SimpleChaincode) Init(stub shim.ChaincodeStubInterface) pb.Response {
 	fmt.Println("exporter Init")
