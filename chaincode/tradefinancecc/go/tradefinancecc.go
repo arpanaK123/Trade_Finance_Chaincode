@@ -40,22 +40,21 @@ type SimpleChaincode struct {
 type AccountStructure struct{
 	Account_Number string `json:"account_Number"`
 	Account_Holder_Name string `json:"account_Holder_Name"`
-	Account_Balance string `json:"account_Balance"`
+	Account_Balance int `json:"account_Balance"`
 	Bank_Name string `json:"bank_Name"`
 }
 type ContractStructure struct{
 	Contract_Id string `json:"contract_Id"`
 	Content_Description string`json:"content_Description"`
-	Value string`json:"value"`
-	Importer_Bank_Name string  `json:"importer_Bank_Name"`
-	Exporter_Bank_Name string `json:"exporter_Bank_Name"`
-	Custom_Authority string `json:"custom_Authority"`
+	Contract_Money string `json:"Contract_Money"`
+	Exporter_Id string `json:"exporter_Id"`
+	Importer_Id string `json:"importer_Id"`
+	Importer_Bank_Id string  `json:"importer_Bank_Id"`
+	Insurance_Id string `json:"insurance_Id"`
+	Custom_Id string `json:"custom_Id"`
 	Port_Of_Loading string `json:"port_Of_Loading"`
 	Port_Of_Entry string `json:"port_Of_Entry"`
 }
-// func (s *SimpleChaincode) Init(stub shim.ChaincodeStubInterface) pb.Response{
-// 	return shim.Success(nil)
-// }
 
 func (t *SimpleChaincode) Invoke(stub shim.ChaincodeStubInterface) pb.Response {
 	//Logger.Info("invoke called")
@@ -83,6 +82,8 @@ func (t *SimpleChaincode) Invoke(stub shim.ChaincodeStubInterface) pb.Response {
 		return t.accept_By_ImporterBank(stub, args)
 	}else if function == "accept_By_Insurance" {
 		return t.accept_By_Insurance(stub, args)
+	}else if function == "moneyTransfer_By_Exporter" {
+		return t.moneyTransfer_By_Exporter(stub, args)
 	}else if function == "query" {
 		// the old "Query" is now implemtned in invoke
 		return t.query(stub, args)
@@ -95,7 +96,8 @@ func (s *SimpleChaincode) create_Account(stub shim.ChaincodeStubInterface, args 
 	if len(args) != 4 {
 		return shim.Error("Incorrect number of arguments. Expecting 4")
 	}
-	account := AccountStructure{Account_Number: args[0], Account_Holder_Name: args[1], Account_Balance: args[2], Bank_Name: args[3], }
+	balance,_:= strconv.Atoi(args[2])
+	account := AccountStructure{Account_Number: args[0], Account_Holder_Name: args[1], Account_Balance:balance, Bank_Name: args[3], }
 	accountAsBytes,error:=json.Marshal(account)
 	if error!=nil{
 	return shim.Error("something wrong")
@@ -104,10 +106,10 @@ func (s *SimpleChaincode) create_Account(stub shim.ChaincodeStubInterface, args 
 	return shim.Success(accountAsBytes)
 }
 func (s *SimpleChaincode) create_Contract(stub shim.ChaincodeStubInterface, args []string) pb.Response{
-	if len(args) != 8 {
+	if len(args) != 10 {
 		return shim.Error("Incorrect number of arguments. Expecting 8")
 	}
-	contract := ContractStructure{Contract_Id:args[0], Content_Description:args[1], Value:args[2],  Importer_Bank_Name:args[3], Exporter_Bank_Name:args[4], Custom_Authority:args[5], Port_Of_Loading:args[6], Port_Of_Entry:args[7]}
+	contract := ContractStructure{Contract_Id:args[0], Content_Description:args[1], Contract_Money:args[2],  Exporter_Id:args[3], Importer_Id:args[4], Importer_Bank_Id:args[5],Insurance_Id:args[6],Custom_Id: args[7], Port_Of_Loading:args[8], Port_Of_Entry:args[9]}
 	contractAsBytes,error:=json.Marshal(contract)
 	if error!=nil{
 		return shim.Error("something wrong")
@@ -117,24 +119,26 @@ func (s *SimpleChaincode) create_Contract(stub shim.ChaincodeStubInterface, args
 }
 func (s *SimpleChaincode) get_Balance_By(stub shim.ChaincodeStubInterface, args []string) pb.Response{
 	 account_Number := args[0]
-
-	 accountAsByte, accountError := stub.GetState(account_Number)
-	 if accountError != nil {
-	 	return shim.Error("error.... account information in getstate method ")
-	 }
+	 accountAsByte,_ := stub.GetState(account_Number)
+	 if accountAsByte == nil {
+		return shim.Error("error.... account information ")
+	}
 	  accountSructure:= AccountStructure{}
 	 errorAccount := json.Unmarshal(accountAsByte, &accountSructure)
 	 if errorAccount != nil {
 	 	return shim.Error("Something Wrong")
 	 }
-	 return shim.Success([]byte(accountSructure.Account_Balance))
+	 //return shim.Success(accountSructure.Account_Balance)
+	 account_Balance:=strconv.Itoa(accountSructure.Account_Balance)
+	 return shim.Success([]byte( account_Balance))
+
 }
 func (s *SimpleChaincode) get_Account(stub shim.ChaincodeStubInterface, args []string) pb.Response{
 	 account_Number := args[0]
 
-	 accountAsByte, accountError := stub.GetState(account_Number)
-	 if accountError != nil {
-	 	return shim.Error("something wrong in getstate method ")
+	 accountAsByte, _ := stub.GetState(account_Number)
+	 if accountAsByte == nil {
+	 	return shim.Error("something wrong in Account Information ")
 	 }
 	 accountSructure := AccountStructure{}
 	 errorAccount := json.Unmarshal(accountAsByte, &accountSructure)
@@ -146,9 +150,9 @@ func (s *SimpleChaincode) get_Account(stub shim.ChaincodeStubInterface, args []s
 func (s *SimpleChaincode) get_Contract_By(stub shim.ChaincodeStubInterface, args []string) pb.Response{
 	contract_Id := args[0]
 
-	contractAsByte, contractError := stub.GetState(contract_Id)
-	if contractError != nil {
-		return shim.Error("something wrong in getstate method ")
+	contractAsByte, _ := stub.GetState(contract_Id)
+	if contractAsByte == nil {
+		return shim.Error("something wrong in Contract_ID ")
 	}
 	contractSructure := ContractStructure{}
 	errorContract := json.Unmarshal(contractAsByte, &contractSructure)
@@ -165,18 +169,18 @@ func (s *SimpleChaincode) accept_By_Exporter(stub shim.ChaincodeStubInterface, a
 
 func (s *SimpleChaincode) accept_By_Importer(stub shim.ChaincodeStubInterface, args []string) pb.Response{
 	account_Number := args[0]
-	accountAsByte, accountError := stub.GetState(account_Number)
-	if accountError != nil {
+	accountAsByte, _ := stub.GetState(account_Number)
+	if accountAsByte == nil {
 		return shim.Error("Account number Invalid ")
 	}
 	accountSructure := AccountStructure{}
 	errorAccount := json.Unmarshal(accountAsByte, &accountSructure)
-	if accountSructure.Account_Balance!="10000"{
+	if accountSructure.Account_Balance!=10000{
 		return shim.Error("account balance is less than 10000")
 	}
 	//errorAccount := json.Unmarshal(accountAsByte, &accountSructure)
 	if errorAccount != nil {
-		return shim.Error("Account number Invalid")
+		return shim.Error("Something wrong")
 	}
 	response:="success"
 	return shim.Success([]byte(response))
@@ -184,8 +188,8 @@ func (s *SimpleChaincode) accept_By_Importer(stub shim.ChaincodeStubInterface, a
 
 func (s *SimpleChaincode) accept_By_Custom(stub shim.ChaincodeStubInterface, args []string) pb.Response{
 	contract_Id:=args[0]
-	 customAsByte, customError := stub.GetState(contract_Id)
-	 if customError != nil {
+	 customAsByte, _ := stub.GetState(contract_Id)
+	 if customAsByte == nil {
 	 	return shim.Error("Contract_Id is Invalid ")
 	 }
 	 contractSruct := ContractStructure{}
@@ -202,28 +206,29 @@ func (s *SimpleChaincode) accept_By_Custom(stub shim.ChaincodeStubInterface, arg
 
 func (s *SimpleChaincode) accept_By_ImporterBank(stub shim.ChaincodeStubInterface, args []string) pb.Response{
 	account_Number := args[0]
-    account_Balance:="10000"
-	accountAsByte, accountError := stub.GetState(account_Number)
-	if accountError != nil {
+	accountAsByte, _ := stub.GetState(account_Number)
+	if accountAsByte == nil {
 		return shim.Error("Account number is Invalid")
 	}
 	accountSruct := AccountStructure{}
 	errorAccount := json.Unmarshal(accountAsByte, &accountSruct)
-	if accountSruct.Account_Balance!=account_Balance{
+	if accountSruct.Account_Balance!=10000{
 		return shim.Error("account balance is less than 10000")
 	}
 	//errorAccount := json.Unmarshal(accountAsByte, &accountSruct)
 	if errorAccount != nil {
 	return	shim.Error("something wrong")
 	}
+//	s.moneyTransfer_By_Exporter(stub, )
 	response:="success"
-	return shim.Success([]byte(response))}
+	return shim.Success([]byte(response))
+}
 
 func (s *SimpleChaincode) accept_By_Insurance(stub shim.ChaincodeStubInterface, args []string) pb.Response{
-	contract_Id:=args[0]
-	 customAsByte, customError := stub.GetState(contract_Id)
-	 if customError != nil {
-	 	return shim.Error("something wrong in getstate method ")
+	 contract_Id:=args[0]
+	 customAsByte, _ := stub.GetState(contract_Id)
+	 if customAsByte == nil {
+	 	return shim.Error("something wrong in Contract_ID")
 	 }
 	 contractSruct := ContractStructure{}
 	 errorContract_Custom := json.Unmarshal(customAsByte, &contractSruct)
@@ -235,7 +240,76 @@ func (s *SimpleChaincode) accept_By_Insurance(stub shim.ChaincodeStubInterface, 
 	 	return shim.Error("something wrong")
 	 }
 	 response:="success"
-	 return shim.Success([]byte(response))}
+	 return shim.Success([]byte(response))
+}
+func (s *SimpleChaincode) moneyTransfer_By_Exporter(stub shim.ChaincodeStubInterface,args []string) pb.Response{
+	contract_Id:=args[0]
+	contractAsByte, _ := stub.GetState(contract_Id)
+    if contractAsByte==nil{
+		return shim.Error("Invalid COntract_id")
+	}
+	contractStruct := ContractStructure{}
+	errorContract := json.Unmarshal(contractAsByte, &contractStruct)
+	if errorContract != nil {
+		return shim.Error("something wrong")
+	}
+	//
+	exporter:= contractStruct.Exporter_Id
+	exporterAsByte, _ := stub.GetState(exporter)
+	exporterStruct:=AccountStructure{}
+	error_Exporter := json.Unmarshal(exporterAsByte, &exporterStruct)
+    if error_Exporter!=nil{
+		return shim.Error("Invalid")
+	}
+	exporter_Bal:=exporterStruct.Account_Balance
+	exporter_Bal=exporter_Bal-5000
+	exporterStruct.Account_Balance=exporter_Bal
+	struct_ExporterAsByte,_ := json.Marshal(exporterStruct)
+	error := stub.PutState(contractStruct.Exporter_Id,struct_ExporterAsByte)
+	if error != nil {
+		return shim.Error("something wrong")
+	}
+	return shim.Success(struct_ExporterAsByte)
+//
+	importer:=contractStruct.Importer_Id
+	importerAsByte, _ := stub.GetState(importer)
+	importerStruct:=AccountStructure{}
+	error_Importer := json.Unmarshal(importerAsByte, &importerStruct)
+	if error_Importer!=nil{
+		return shim.Error("Invalid")
+	}
+	importer_Bal:=importerStruct.Account_Balance
+	importer_Bal=exporter_Bal+importer_Bal
+	importer_Bal=importer_Bal-10000
+	importerStruct.Account_Balance=importer_Bal
+	struct_ImporterAsByte,_ := json.Marshal(importerStruct)
+	error1 := stub.PutState(contractStruct.Importer_Id,struct_ImporterAsByte)
+	if error1 != nil {
+		return shim.Error("something wrong")
+	}
+	return shim.Success(struct_ImporterAsByte)
+
+//
+    custom:=contractStruct.Custom_Id
+	customAsByte, _ := stub.GetState(custom)
+	customStruct:=AccountStructure{}
+	error_Custom := json.Unmarshal(customAsByte, &customStruct)
+	if error_Custom!=nil{
+		return shim.Error("Invalid")
+	}
+	custom_Bal:=customStruct.Account_Balance
+	custom_Bal=custom_Bal+importer_Bal
+	customStruct.Account_Balance=custom_Bal
+	struct_CustomAsByte,_ := json.Marshal(customStruct)
+	error2 := stub.PutState(contractStruct.Custom_Id,struct_CustomAsByte)
+	if error2 != nil {
+		return shim.Error("something wrong")
+	}
+	return shim.Success(struct_CustomAsByte)
+	//return shim.Success(nil)
+	// return shim.Success(accountBalance)
+//	return shim.Success([]byte(accountSruct.Account_Balance))
+}
 
 func (t *SimpleChaincode) Init(stub shim.ChaincodeStubInterface) pb.Response {
 	fmt.Println("exporter Init")
@@ -274,23 +348,6 @@ func (t *SimpleChaincode) Init(stub shim.ChaincodeStubInterface) pb.Response {
 
 	return shim.Success(nil)
 }
-
-// func (t *SimpleChaincode) Invoke(stub shim.ChaincodeStubInterface) pb.Response {
-// 	fmt.Println("exporter Invoke")
-// 	function, args := stub.GetFunctionAndParameters()
-// 	if function == "invoke" {
-// 		// Make payment of X units from A to B
-// 		return t.invoke(stub, args)
-// 	} else if function == "delete" {
-// 		// Deletes an entity from its state
-// 		return t.delete(stub, args)
-// 	} else if function == "query" {
-// 		// the old "Query" is now implemtned in invoke
-// 		return t.query(stub, args)
-// 	}
-
-// 	return shim.Error("Invalid invoke function name. Expecting \"invoke\" \"delete\" \"query\"")
-// }
 
 //Transaction makes payment of X units from A to B
 func (t *SimpleChaincode) invoke(stub shim.ChaincodeStubInterface, args []string) pb.Response {
